@@ -1,0 +1,139 @@
+version: '3.8'
+
+services:
+  api:
+    image: todo-mart-api
+    build:
+      context: ./todo
+      dockerfile: Dockerfile.dev
+    restart: always
+    volumes:
+      - ./todo:/code
+    depends_on:
+      - postgres_db
+      - broker
+    ports:
+      - "8001:8001"
+
+  api2:
+    image: ms2-mart-api
+    build:
+      context: ./microservice_02
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./microservice_02:/code
+    depends_on:
+      - broker
+    ports:
+      - "8002:8002"
+
+  product-service:
+    image: product-mart-api
+    build:
+      context: ./product-service
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./product-service:/code
+    depends_on:
+      - broker
+      - product_db
+    ports:
+      - "8005:8005"
+
+  order-service:
+    image: order-mart-api
+    build:
+      context: ./order_service
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./order_service:/code
+    depends_on:
+      - broker
+      - order_db
+    ports:
+      - "8006:8006"
+
+  postgres_db:
+    image: postgres:latest
+    restart: always
+    container_name: PostgresCont
+    environment:
+      - POSTGRES_USER=ziakhan
+      - POSTGRES_PASSWORD=my_password
+      - POSTGRES_DB=mydatabase
+    ports:
+      - "5480:5432"
+    volumes:
+      - postgres_db:/var/lib/postgresql/data
+
+  product_db:
+    image: postgres:latest
+    restart: always
+    container_name: ProductsCont
+    environment:
+      - POSTGRES_USER=ziakhan
+      - POSTGRES_PASSWORD=my_password
+      - POSTGRES_DB=product_db
+    ports:
+      - "5481:5432"
+    volumes:
+      - product_db:/var/lib/postgresql/data
+
+  order_db:
+    image: postgres:latest
+    restart: always
+    container_name: OrderCont
+    environment:
+      - POSTGRES_USER=ziakhan
+      - POSTGRES_PASSWORD=my_password
+      - POSTGRES_DB=order_db
+    ports:
+      - "5482:5432"
+    volumes:
+      - order_db:/var/lib/postgresql/data
+
+  broker:
+    image: apache/kafka:3.7.0
+    hostname: broker
+    container_name: broker
+    ports:
+      - "9093:9093"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT_HOST://localhost:9092,PLAINTEXT://broker:19092"
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@broker:29093"
+      KAFKA_LISTENERS: "CONTROLLER://:29093,PLAINTEXT_HOST://:9092,PLAINTEXT://:19092"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      CLUSTER_ID: "4L6g3nShT-eMCtK--X86sw"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_LOG_DIRS: "/tmp/kraft-combined-logs"
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui
+    container_name: kafka-ui
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: "Local Kafka Cluster"
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: "broker:19092"
+      DYNAMIC_CONFIG_ENABLED: "true"
+    depends_on:
+      - broker
+
+volumes:
+  postgres_db:
+    driver: local
+  product_db:
+    driver: local
+  order_db:
+    driver: local
+
+networks:
+  default:
+    driver: bridge
